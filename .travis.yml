@@ -1,0 +1,14 @@
+language: python
+sudo: false
+python:
+  # lacks re.fullmatch
+  #- 3.3
+  - 3.4
+  - 3.5
+  - 3.6
+install:
+  - pip install coverage
+script:
+  - make test -j`nproc`
+notifications:
+  irc: "irc.freenode.org#o11c"
