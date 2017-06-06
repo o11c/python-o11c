@@ -471,6 +471,96 @@ class DeltaMap(Mapping):
         return '%s(len=%d, low_keys=%r, high_keys=%r, values=%r)' % (self.__class__.__qualname__, self._len, self._low_keys, self._high_keys, self._values)
 
 
+class DenseMap(Mapping):
+    ''' Compressed binary-search dict (for arbitrary values with dense keys).
+    '''
+    def __init__(self, iterable=None, *, freeze=True):
+        self._len = 0
+        self._low_keys = []
+        self._high_keys = []
+        self._value_indices = []
+        self._value_data = []
+        self._frozen = False
+        if iterable is not None:
+            if isinstance(iterable, Mapping):
+                iterable = iterable.items()
+            iterable = sorted(iterable)
+            for key, value in iterable:
+                self._append_range(key, [value])
+            if freeze:
+                self._freeze()
+
+    def _append_range(self, low_key, value_list):
+        high_key = low_key + len(value_list) - 1
+        assert not self._frozen
+        assert not self._len or self._high_keys[-1] < low_key
+        assert low_key <= high_key # i.e. len(value_list) > 0
+        if self._len and self._high_keys[-1] + 1 == low_key:
+            self._high_keys[-1] = high_key
+            self._value_data.extend(value_list)
+        else:
+            self._low_keys.append(low_key)
+            self._high_keys.append(high_key)
+            self._value_indices.append(len(self._value_data))
+            self._value_data.extend(value_list)
+        self._len += high_key - low_key + 1
+
+    def _freeze(self):
+        assert not self._frozen
+        self._frozen = True
+        self._low_keys = _algo.freeze(self._low_keys)
+        self._high_keys = _algo.freeze(self._high_keys)
+        self._value_indices = _algo.freeze(self._value_indices)
+        # self._value_data is unchanged
+
+    @classmethod
+    def _from_raw(cls, len, low_keys, high_keys, value_indices, value_data):
+        self = cls.__new__(cls)
+        self._len = len
+        self._low_keys = low_keys
+        self._high_keys = high_keys
+        self._value_indices = value_indices
+        self._value_data = value_data
+        self._frozen = True
+        return self
+
+    def _to_raw(self):
+        assert self._frozen or not self._len
+        return self._len, self._low_keys, self._high_keys, self._value_indices, self._value_data
+
+    def __getitem__(self, item):
+        assert self._frozen or not self._len
+        idx = _algo.search(self._low_keys, item)
+        if idx != -1:
+            assert self._low_keys[idx] <= item
+            if item <= self._high_keys[idx]:
+                vi = self._value_indices[idx]
+                kd = item - self._low_keys[idx]
+                return self._value_data[vi + kd]
+        raise KeyError(item)
+
+    def _iter_tuples(self):
+        _low_keys = self._low_keys
+        _high_keys = self._high_keys
+        _value_indices = self._value_indices
+        _value_data = self._value_data
+        for idx in _algo.iter_forward(len(self._low_keys)):
+            nkeys = _high_keys[idx] - _low_keys[idx] + 1
+            vi = _value_indices[idx]
+            yield (_low_keys[idx], _value_data[vi:vi+nkeys])
+
+    def __iter__(self):
+        for k, vs in self._iter_tuples():
+            for kd, v in enumerate(vs):
+                yield k + kd
+
+    def __len__(self):
+        return self._len
+
+    def __repr__(self):
+        return '%s(len=%d, low_keys=%r, high_keys=%r, value_indices=%r, value_data=%r)' % (self.__class__.__qualname__, self._len, self._low_keys, self._high_keys, self._value_indices, self._value_data)
+
+
 class AutoMap(Mapping):
     ''' Multi-strategy binary-search dict.
     '''

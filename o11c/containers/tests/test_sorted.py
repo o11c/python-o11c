@@ -23,7 +23,7 @@ import unittest
 mod = importlib.import_module(__name__.replace('.containers.tests.test_', '.containers.'))
 for name in '''
     SortedSet RangeSet AutoSet
-    SortedMap RangeMap DeltaMap AutoMap
+    SortedMap RangeMap DeltaMap DenseMap AutoMap
 '''.split():
     globals()[name] = getattr(mod, name)
 del name
@@ -722,6 +722,27 @@ class TestDeltaMap(_TestMapBase):
         assert not is_delta
         for key in range(low_key, high_key + 1):
             self._append_range(key, key, value)
+
+
+class TestDenseMap(_TestMapBase):
+    cls = DenseMap
+    need_int_key = True
+
+    @staticmethod
+    def convert_raw(key_dtype, value_dtype, len, low_keys, high_keys, value_indices, value_data):
+        low_keys = np.array(low_keys, dtype=key_dtype)
+        high_keys = np.array(high_keys, dtype=key_dtype)
+        value_indices = np.array(value_indices, dtype='>u4')
+        value_data = np.array(value_data, dtype=value_dtype)
+        return len, low_keys, high_keys, value_indices, value_data
+
+    @staticmethod
+    def append_quad(self, low_key, high_key, value, is_delta):
+        nkeys = high_key - low_key + 1
+        if nkeys == 1 or not is_delta:
+            self._append_range(low_key, [value] * nkeys)
+        else:
+            self._append_range(low_key, [value + i for i in range(nkeys)])
 
 
 class TestAutoMap(_TestMapBase):
