@@ -1,5 +1,5 @@
 #   python-o11c - generic utilities library
-#   Copyright © 2017  Ben Longbons
+#   Copyright © 2017-2018  Ben Longbons
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +20,24 @@ from string import ascii_lowercase
 import unittest
 
 from o11c.containers import _cfbs as cfbs
+
+
+def sizes_up_to(sz_limit):
+    # Used when looping over different sizes to test algorithmically.
+    #
+    # Semantically, could return any sequence of integers,
+    # as long as none they are less than sz_limit.
+    return range(sz_limit)
+
+def ascii_range_of_size(sz):
+    # generate pretty, unconfusable data
+    assert 0 <= sz <= 26
+    return ascii_lowercase[:sz]
+
+def stringified_range_of_size(sz):
+    # generate large, unconfusable data
+    digits = len(str(sz-1))
+    return ['E%*d' % (digits, d) for d in range(sz)]
 
 
 class TestCfbs(unittest.TestCase):
@@ -106,33 +124,65 @@ class TestCfbs(unittest.TestCase):
         assert cfbs.make_order(range(15)) == [7, 3, 11, 1, 5, 9, 13, 0, 2, 4, 6, 8, 10, 12, 14]
         assert list(cfbs.iter_forward(15)) == [7, 3, 8, 1, 9, 4, 10, 0, 11, 5, 12, 2, 13, 6, 14]
 
-        assert cfbs.make_order(ascii_lowercase[:0]) == list()
-        assert cfbs.make_order(ascii_lowercase[:1]) == list('a')
-        assert cfbs.make_order(ascii_lowercase[:2]) == list('ba')
-        assert cfbs.make_order(ascii_lowercase[:3]) == list('bac')
-        assert cfbs.make_order(ascii_lowercase[:4]) == list('cbda')
-        assert cfbs.make_order(ascii_lowercase[:5]) == list('dbeac')
-        assert cfbs.make_order(ascii_lowercase[:6]) == list('dbface')
-        assert cfbs.make_order(ascii_lowercase[:7]) == list('dbfaceg')
-        assert cfbs.make_order(ascii_lowercase[:8]) == list('ecgbdfha')
-        assert cfbs.make_order(ascii_lowercase[:9]) == list('fdhbegiac')
-        assert cfbs.make_order(ascii_lowercase[:10]) == list('gdibfhjace')
-        assert cfbs.make_order(ascii_lowercase[:11]) == list('hdjbfikaceg')
-        assert cfbs.make_order(ascii_lowercase[:12]) == list('hdkbfjlacegi')
-        assert cfbs.make_order(ascii_lowercase[:13]) == list('hdlbfjmacegik')
-        assert cfbs.make_order(ascii_lowercase[:14]) == list('hdlbfjnacegikm')
-        assert cfbs.make_order(ascii_lowercase[:15]) == list('hdlbfjnacegikmo')
+        assert cfbs.make_order(ascii_range_of_size(0)) == list()
+        assert cfbs.make_order(ascii_range_of_size(1)) == list('a')
+        assert cfbs.make_order(ascii_range_of_size(2)) == list('ba')
+        assert cfbs.make_order(ascii_range_of_size(3)) == list('bac')
+        assert cfbs.make_order(ascii_range_of_size(4)) == list('cbda')
+        assert cfbs.make_order(ascii_range_of_size(5)) == list('dbeac')
+        assert cfbs.make_order(ascii_range_of_size(6)) == list('dbface')
+        assert cfbs.make_order(ascii_range_of_size(7)) == list('dbfaceg')
+        assert cfbs.make_order(ascii_range_of_size(8)) == list('ecgbdfha')
+        assert cfbs.make_order(ascii_range_of_size(9)) == list('fdhbegiac')
+        assert cfbs.make_order(ascii_range_of_size(10)) == list('gdibfhjace')
+        assert cfbs.make_order(ascii_range_of_size(11)) == list('hdjbfikaceg')
+        assert cfbs.make_order(ascii_range_of_size(12)) == list('hdkbfjlacegi')
+        assert cfbs.make_order(ascii_range_of_size(13)) == list('hdlbfjmacegik')
+        assert cfbs.make_order(ascii_range_of_size(14)) == list('hdlbfjnacegikm')
+        assert cfbs.make_order(ascii_range_of_size(15)) == list('hdlbfjnacegikmo')
+
+    def test_invariant(self):
+        for sz in sizes_up_to(100):
+            o = cfbs.make_order(range(sz))
+            f = list(cfbs.iter_forward(sz))
+            for i in range(sz):
+                assert f[o[i]] == i
+                assert o[f[i]] == i
+
+    def test_index_conversion(self):
+        for sz in sizes_up_to(26+1):
+            sorted_data = ascii_range_of_size(sz)
+            ordered_data = ''.join(cfbs.make_order(sorted_data))
+
+            for li, c in enumerate(sorted_data):
+                pi = cfbs.to_physical_index(li, sz)
+                assert ordered_data[pi] == c
+            for pi, c in enumerate(ordered_data):
+                li = cfbs.to_logical_index(pi, sz)
+                assert sorted_data[li] == c
+        for sz in sizes_up_to(100):
+            sorted_data = stringified_range_of_size(sz)
+            ordered_data = cfbs.make_order(sorted_data)
+
+            for li, c in enumerate(sorted_data):
+                pi = cfbs.to_physical_index(li, sz)
+                assert ordered_data[pi] == c
+            for pi, c in enumerate(ordered_data):
+                li = cfbs.to_logical_index(pi, sz)
+                assert sorted_data[li] == c
 
     def test_iter(self):
-        for sz in range(100):
-            orig = ['E%d' % i for i in range(sz)]
+        for sz in sizes_up_to(100):
+            orig = stringified_range_of_size(sz)
             order = cfbs.make_order(orig)
             assert list(orig) == list(cfbs.iter_order_forward(order))
             assert list(reversed(orig)) == list(cfbs.iter_order_backward(order))
 
     def test_tree(self):
-        for sz in range(100):
-            order = cfbs.make_order(range(sz))
+        for sz in sizes_up_to(100):
+            sorted_data = stringified_range_of_size(sz)
+            assert sorted_data == sorted(sorted_data)
+            order = cfbs.make_order(sorted_data)
             for i in range(len(order)):
                 if cfbs.has_left_child(i, sz):
                     assert order[cfbs.left_child(i)] < order[i]
@@ -140,7 +190,7 @@ class TestCfbs(unittest.TestCase):
                     assert order[i] < order[cfbs.right_child(i)]
 
     def test_numpy(self):
-        for sz in range(100):
+        for sz in sizes_up_to(100):
             order_in_python_list = cfbs.make_order(range(sz))
             order_in_numpy_array = cfbs.make_order(iter(range(sz)), into=np.ndarray(sz, dtype=np.int32))
             assert isinstance(order_in_numpy_array, np.ndarray)

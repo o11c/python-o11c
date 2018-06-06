@@ -1,5 +1,5 @@
 #   python-o11c - generic utilities library
-#   Copyright © 2017  Ben Longbons
+#   Copyright © 2017-2018  Ben Longbons
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU Lesser General Public License as published by
@@ -15,6 +15,8 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import enum
+
 from .exceptions import ProgrammerIsAnIdiotError
 
 
@@ -27,6 +29,14 @@ class ErrorBoolType:
 
     def __bool__(self):
         raise ProgrammerIsAnIdiotError('I should not be used as a bool!')
-
-
 ErrorBool = object.__new__(ErrorBoolType)
+
+
+class Direction(enum.Enum):
+    ''' Use this to avoid copy-paste when implementing tree algorithms.
+    '''
+    LEFT = 0
+    RIGHT = 1
+
+    def flipped(self):
+        return Direction(not self.value)

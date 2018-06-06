@@ -1,5 +1,5 @@
 #   python-o11c - generic utilities library
-#   Copyright © 2017  Ben Longbons
+#   Copyright © 2018  Ben Longbons
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU Lesser General Public License as published by
