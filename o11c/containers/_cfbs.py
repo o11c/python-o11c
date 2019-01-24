@@ -19,6 +19,7 @@ import functools
 
 from ..enums import Direction
 
+# Note: apparently this is called the "Eytzinger method", and dates to 1590.
 
 # Orders:
 # (If not one-less-than-a-power-of-2, the last row will collapse as needed)
